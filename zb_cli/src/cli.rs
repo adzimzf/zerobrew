@@ -27,7 +27,7 @@ pub struct Cli {
         long = "auto-init",
         global = true,
         env = "ZEROBREW_AUTO_INIT",
-        help = "Automatically initialize without prompting"
+        help = "Automatically initialize data directories without prompting or modifying shell configuration"
     )]
     pub auto_init: bool,
 
@@ -110,6 +110,13 @@ mod tests {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Enable or remove the opt-in brew compatibility entrypoint
+    InstallAlias {
+        #[arg(value_parser = ["brew"])]
+        name: String,
+        #[arg(long, help = "Remove only zerobrew's brew symlink")]
+        remove: bool,
+    },
     /// Install formulas and casks
     Install {
         #[arg(required = true, num_args = 1..)]

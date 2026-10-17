@@ -41,10 +41,14 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      # Pull requests can only restore main's cache, and main only saves it
+      # from the nightly run. Save it even when the nightly's gates fail, or
+      # every pull request rebuilds every dependency.
       - name: cache rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: macos-latest-${{ matrix.rust }}-release
+          cache-on-failure: true
 
       - name: homebrew version
         run: brew --version
@@ -57,14 +61,20 @@ jobs:
           chmod +x /tmp/zb-release
           /tmp/zb-release --version
 
-      # Gated on the nightly run only; pull requests report.
+      # Gated on the nightly run only; pull requests report. Homebrew's times
+      # don't change with a pull request, so only the nightly measures them.
       - name: time installs
         env:
           ZB_PARITY_REQUIRE_BREW: "1"
+          ZB_TIMING_SKIP_BREW: ${{ github.event_name == 'pull_request' && '1' || '' }}
           ZB_TIMING_BASELINE: /tmp/zb-release
           ZB_TIMING_MIN_SPEEDUP: ${{ github.event_name == 'schedule' && '1.5' || '' }}
           ZB_TIMING_MIN_WARM_SPEEDUP: ${{ github.event_name == 'schedule' && '3' || '' }}
-          ZB_TIMING_MAX_REGRESSION: ${{ github.event_name == 'schedule' && '1.2' || '' }}
+          # Off while the baseline is 0.4.0, which doesn't run post-install:
+          # against it, node, python and ca-certificates are slower by design.
+          # After the next release, set back to
+          # `${{ github.event_name == 'schedule' && '1.2' || '' }}`.
+          ZB_TIMING_MAX_REGRESSION: ""
           ZB_TIMING_TABLE: /tmp/zb-timing.md
         run: cargo test --release --package zb_cli --features parity --test parity -- --nocapture install_timings
 
@@ -84,7 +94,7 @@ jobs:
             echo
             cat /tmp/zb-timing.md
             echo
-            echo "_${SHA:0:7}, macos-latest. Cold: nothing cached. Warm: uninstalled, downloads cached. Each zb build 3 rounds, fastest counts; release is the newest GitHub release._"
+            echo "_${SHA:0:7}, macos-latest. Cold: nothing cached. Warm: uninstalled, downloads cached. Each zb build 3 rounds, fastest counts; release is the newest GitHub release. Homebrew is timed in the nightly run._"
           } > /tmp/zb-timing-comment.md
           existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)

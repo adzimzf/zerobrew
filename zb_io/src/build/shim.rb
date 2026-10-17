@@ -336,6 +336,9 @@ class Formula
     def compatibility_version(_); nil; end
     def mirror(_); nil; end
 
+    def option(*_args); nil; end
+    def build; BuildOptions.new; end
+
     def depends_on(_); nil; end
     def uses_from_macos(*_args, **_kwargs); nil; end
     def on_macos(&block); yield if OS.mac?; end
@@ -491,6 +494,12 @@ class Formula
     puts "==> #{cmd}"
     result = Kernel.system(*args.map(&:to_s))
     exit 1 unless result
+  end
+
+  def cd(dir, &block)
+    dir = dir.respond_to?(:to_path) ? dir.to_path : dir.to_s
+    puts "==> cd #{dir}"
+    block_given? ? Dir.chdir(dir, &block) : Dir.chdir(dir)
   end
 
   def mv(*sources, **options)
